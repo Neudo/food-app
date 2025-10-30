@@ -3,7 +3,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Ingredient, MealType, Recipe, RecipeFormData } from "@/types/recipe";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Alert,
   Image,
@@ -34,10 +34,21 @@ export function RecipeForm({ recipe, onSubmit, onCancel }: RecipeFormProps) {
   const styles = createStyles(colors);
 
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 5;
 
   // Form state
+  const [isSimple, setIsSimple] = useState(recipe?.isSimple || false);
+  
+  // Nombre d'étapes dynamique: 2 pour recette simple, 5 pour recette complète
+  const totalSteps = isSimple ? 2 : 5;
+
+  // Réinitialiser l'étape à 1 quand on change le mode recette simple
+  useEffect(() => {
+    if (currentStep > totalSteps) {
+      setCurrentStep(1);
+    }
+  }, [isSimple, totalSteps, currentStep]);
   const [title, setTitle] = useState(recipe?.title || "");
+  const [notes, setNotes] = useState(recipe?.notes || "");
   const [mealType, setMealType] = useState<MealType>(
     recipe?.mealType || "repas-complet"
   );
@@ -159,6 +170,28 @@ export function RecipeForm({ recipe, onSubmit, onCancel }: RecipeFormProps) {
   };
 
   const handleSubmit = () => {
+    // Pour les recettes simples, on ne valide que le titre, l'image et les notes
+    if (isSimple) {
+      const recipeData: RecipeFormData = {
+        title: title.trim(),
+        description: "",
+        imageUrl,
+        mealType,
+        isSimple: true,
+        notes: notes.trim() || undefined,
+        ingredients: [],
+        steps: [],
+        prepTime: 0,
+        cookTime: 0,
+        servings: 1,
+        difficulty: "facile",
+        category: "Autre",
+      };
+      onSubmit(recipeData);
+      return;
+    }
+
+    // Pour les recettes complètes
     const validIngredients = ingredients.filter((ing) => ing.name.trim());
     const validSteps = steps.filter((step) => step.trim());
     const validEquipment = equipment.filter((item) => item.trim());
@@ -168,6 +201,8 @@ export function RecipeForm({ recipe, onSubmit, onCancel }: RecipeFormProps) {
       description: description.trim(),
       imageUrl,
       mealType,
+      isSimple: false,
+      notes: notes.trim() || undefined,
       ingredients: validIngredients,
       equipment: validEquipment.length > 0 ? validEquipment : undefined,
       steps: validSteps,
@@ -194,6 +229,32 @@ export function RecipeForm({ recipe, onSubmit, onCancel }: RecipeFormProps) {
             <ThemedText style={styles.stepDescription}>
               Commençons par les informations essentielles de votre recette
             </ThemedText>
+
+            {/* Toggle Recette Simple */}
+            <TouchableOpacity
+              style={[
+                styles.simpleToggle,
+                { borderColor: isSimple ? colors.tint : colors.icon },
+                isSimple && { backgroundColor: colors.tint + "20" },
+              ]}
+              onPress={() => setIsSimple(!isSimple)}
+            >
+              <View style={styles.simpleToggleContent}>
+                <Icon
+                  name={isSimple ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={24}
+                  color={isSimple ? colors.tint : colors.icon}
+                />
+                <View style={styles.simpleToggleText}>
+                  <ThemedText style={styles.simpleToggleTitle}>
+                    Recette simple
+                  </ThemedText>
+                  <ThemedText style={styles.simpleToggleSubtitle}>
+                    Seulement image, titre et notes
+                  </ThemedText>
+                </View>
+              </View>
+            </TouchableOpacity>
 
             <TextInput
               style={[
@@ -270,10 +331,80 @@ export function RecipeForm({ recipe, onSubmit, onCancel }: RecipeFormProps) {
               imageUri={imageUrl}
               onImageSelected={setImageUrl}
             />
+
+            <ThemedText style={styles.label}>Notes (optionnel)</ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                styles.notesInput,
+                { color: colors.text, borderColor: colors.icon },
+              ]}
+              placeholder="Ajoutez des notes, astuces ou commentaires..."
+              placeholderTextColor={colors.icon}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
           </View>
         );
 
       case 2:
+        // Si recette simple, afficher le récapitulatif
+        if (isSimple) {
+          return (
+            <ScrollView
+              style={styles.stepContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <ThemedText type="subtitle" style={styles.stepTitle}>
+                Récapitulatif
+              </ThemedText>
+              <ThemedText style={styles.stepDescription}>
+                Vérifiez votre recette avant de l&apos;enregistrer
+              </ThemedText>
+
+              <View
+                style={[styles.previewCard, { backgroundColor: colors.card }]}
+              >
+                {imageUrl && (
+                  <Image source={{ uri: imageUrl }} style={styles.previewImage} />
+                )}
+
+                <View style={styles.previewContent}>
+                  <ThemedText type="subtitle" style={styles.previewTitle}>
+                    {title}
+                  </ThemedText>
+
+                  <View style={styles.previewMeta}>
+                    <View style={styles.previewMetaItem}>
+                      <ThemedText style={styles.previewEmoji}>
+                        {selectedMealType?.emoji}
+                      </ThemedText>
+                      <ThemedText style={styles.previewMetaText}>
+                        {selectedMealType?.label}
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  {notes && (
+                    <View style={styles.previewSection}>
+                      <ThemedText style={styles.previewSectionTitle}>
+                        Notes
+                      </ThemedText>
+                      <ThemedText style={styles.previewText}>
+                        {notes}
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </ScrollView>
+          );
+        }
+
+        // Sinon, afficher les détails de préparation (recette complète)
         return (
           <View style={styles.stepContent}>
             <ThemedText type="subtitle" style={styles.stepTitle}>
@@ -964,6 +1095,33 @@ const createStyles = (colors: typeof Colors.light) =>
     previewStepNumber: {
       fontWeight: "700",
       fontSize: 14,
+    },
+    simpleToggle: {
+      borderWidth: 2,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 20,
+    },
+    simpleToggleContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    simpleToggleText: {
+      flex: 1,
+    },
+    simpleToggleTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    simpleToggleSubtitle: {
+      fontSize: 13,
+      opacity: 0.7,
+    },
+    notesInput: {
+      minHeight: 100,
+      paddingTop: 12,
     },
     navigationContainer: {
       padding: 16,

@@ -5,6 +5,8 @@ export interface Recipe {
   title: string;
   description: string;
   mealType: MealType;
+  isSimple: boolean; // Recette simple (seulement image + titre + notes)
+  notes?: string; // Notes optionnelles (surtout pour recettes simples)
   ingredients: Ingredient[];
   equipment?: string[]; // Accessoires/équipements requis (optionnel)
   steps: string[];

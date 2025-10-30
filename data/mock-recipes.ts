@@ -1,12 +1,31 @@
 import { Recipe } from '@/types/recipe';
 
 export const mockRecipes: Recipe[] = [
+  // Exemple de recette simple
+  {
+    id: 'mock-simple-1',
+    title: 'Salade César Express',
+    description: '',
+    mealType: 'déjeuner',
+    isSimple: true,
+    notes: 'Utiliser de la salade romaine bien fraîche. Ajouter des croûtons maison pour plus de croquant !',
+    imageUrl: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=800&q=80',
+    ingredients: [],
+    steps: [],
+    prepTime: 0,
+    cookTime: 0,
+    servings: 1,
+    difficulty: 'facile',
+    category: 'Salade',
+    createdAt: new Date('2024-01-25'),
+  },
   // PETIT-DÉJEUNER
   {
     id: 'mock-1',
     title: 'Smoothie Bowl Tropical',
     description: 'Un petit-déjeuner sain et coloré, plein de vitamines et de saveurs exotiques.',
     mealType: 'petit-déjeuner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Bananes congelées', quantity: '2', unit: '' },
@@ -32,6 +51,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Pancakes Moelleux',
     description: 'Des pancakes américains ultra moelleux, parfaits pour un brunch gourmand.',
     mealType: 'petit-déjeuner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1528207776546-365bb710ee93?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Farine', quantity: '250', unit: 'g' },
@@ -58,6 +78,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Avocado Toast',
     description: 'Le classique healthy et tendance, parfait pour commencer la journée.',
     mealType: 'petit-déjeuner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Pain complet', quantity: '4', unit: 'tranches' },
@@ -85,6 +106,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Salade César',
     description: 'Une salade fraîche et croquante avec une sauce crémeuse.',
     mealType: 'déjeuner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Laitue romaine', quantity: '1', unit: '' },
@@ -110,6 +132,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Buddha Bowl Végétarien',
     description: 'Un bol complet et équilibré, coloré et nutritif.',
     mealType: 'déjeuner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Quinoa', quantity: '200', unit: 'g' },
@@ -135,6 +158,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Wrap Poulet Avocat',
     description: 'Un wrap frais et gourmand, facile à emporter.',
     mealType: 'déjeuner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Tortillas', quantity: '4', unit: '' },
@@ -162,6 +186,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Pâtes Carbonara',
     description: 'Un classique italien crémeux et savoureux.',
     mealType: 'dîner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1612874742237-6526221588e3?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Spaghetti', quantity: '400', unit: 'g' },
@@ -187,6 +212,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Bœuf Bourguignon',
     description: 'Un plat mijoté traditionnel français, tendre et savoureux.',
     mealType: 'dîner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1600891964092-4316c288032e?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Bœuf à braiser', quantity: '1', unit: 'kg' },
@@ -212,6 +238,7 @@ export const mockRecipes: Recipe[] = [
     title: 'Saumon Grillé et Légumes',
     description: 'Un dîner léger et sain avec du saumon parfaitement grillé.',
     mealType: 'dîner',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Filets de saumon', quantity: '4', unit: '' },
@@ -238,7 +265,8 @@ export const mockRecipes: Recipe[] = [
     id: 'mock-10',
     title: 'Tarte Tatin',
     description: 'Un dessert français emblématique aux pommes caramélisées.',
-    mealType: 'goûter',
+    mealType: 'collation',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Pommes Golden', quantity: '8', unit: '' },
@@ -263,7 +291,8 @@ export const mockRecipes: Recipe[] = [
     id: 'mock-11',
     title: 'Cookies Chocolat',
     description: 'Des cookies moelleux aux pépites de chocolat, parfaits pour le goûter.',
-    mealType: 'goûter',
+    mealType: 'collation',
+    isSimple: false,
     imageUrl: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&q=80',
     ingredients: [
       { id: '1', name: 'Farine', quantity: '250', unit: 'g' },

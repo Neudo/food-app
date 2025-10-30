@@ -22,7 +22,7 @@ type TabType = 'all' | 'favorites';
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { recipes, addRecipe, likedRecipes } = useRecipes();
+  const { recipes, addRecipe, updateRecipe, deleteRecipe, likedRecipes, loading } = useRecipes();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
@@ -32,17 +32,22 @@ export default function HomeScreen() {
   // Filtrer les recettes selon l'onglet actif
   const displayedRecipes = activeTab === 'all' ? recipes : likedRecipes;
 
-  const handleAddRecipe = (recipeData: RecipeFormData) => {
-    addRecipe(recipeData);
-    setIsFormVisible(false);
+  const handleAddRecipe = async (recipeData: RecipeFormData) => {
+    const success = await addRecipe(recipeData);
+    if (success) {
+      setIsFormVisible(false);
+    }
   };
 
-  const handleEditRecipe = (recipeData: RecipeFormData) => {
-    // TODO: Implémenter la fonction updateRecipe dans le contexte
-    console.log('Édition de la recette:', selectedRecipe?.id, recipeData);
-    setIsFormVisible(false);
-    setIsEditMode(false);
-    setSelectedRecipe(null);
+  const handleEditRecipe = async (recipeData: RecipeFormData) => {
+    if (!selectedRecipe) return;
+    
+    const success = await updateRecipe(selectedRecipe.id, recipeData);
+    if (success) {
+      setIsFormVisible(false);
+      setIsEditMode(false);
+      setSelectedRecipe(null);
+    }
   };
 
   const handleRecipePress = (recipe: Recipe) => {
