@@ -1,98 +1,290 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import React, { useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Modal,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { RecipeCard } from '@/components/recipe-card';
+import { RecipeForm } from '@/components/recipe-form';
+import { RecipeDetail } from '@/components/recipe-detail';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useRecipes } from '@/contexts/recipe-context';
+import { RecipeFormData, Recipe } from '@/types/recipe';
+
+type TabType = 'all' | 'favorites';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const { recipes, addRecipe, likedRecipes } = useRecipes();
+  const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [isDetailVisible, setIsDetailVisible] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
+  // Filtrer les recettes selon l'onglet actif
+  const displayedRecipes = activeTab === 'all' ? recipes : likedRecipes;
+
+  const handleAddRecipe = (recipeData: RecipeFormData) => {
+    addRecipe(recipeData);
+    setIsFormVisible(false);
+  };
+
+  const handleEditRecipe = (recipeData: RecipeFormData) => {
+    // TODO: Implémenter la fonction updateRecipe dans le contexte
+    console.log('Édition de la recette:', selectedRecipe?.id, recipeData);
+    setIsFormVisible(false);
+    setIsEditMode(false);
+    setSelectedRecipe(null);
+  };
+
+  const handleRecipePress = (recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+    setIsDetailVisible(true);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailVisible(false);
+    setSelectedRecipe(null);
+  };
+
+  const handleEditFromDetail = () => {
+    setIsDetailVisible(false);
+    setIsEditMode(true);
+    setIsFormVisible(true);
+  };
+
+  const handleCloseForm = () => {
+    setIsFormVisible(false);
+    setIsEditMode(false);
+    setSelectedRecipe(null);
+  };
+
+  const styles = createStyles(colors);
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ThemedView style={styles.header}>
+        <ThemedText type="title">Mes Recettes</ThemedText>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.tint }]}
+          onPress={() => setIsFormVisible(true)}
+        >
+          <ThemedText style={styles.addButtonText}>+ Ajouter</ThemedText>
+        </TouchableOpacity>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'all' && styles.activeTab,
+            activeTab === 'all' && { borderBottomColor: colors.tint },
+          ]}
+          onPress={() => setActiveTab('all')}
+        >
+          <ThemedText
+            style={[
+              styles.tabText,
+              activeTab === 'all' && styles.activeTabText,
+              activeTab === 'all' && { color: colors.tint },
+            ]}
+          >
+            Toutes ({recipes.length})
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'favorites' && styles.activeTab,
+            activeTab === 'favorites' && { borderBottomColor: colors.tint },
+          ]}
+          onPress={() => setActiveTab('favorites')}
+        >
+          <ThemedText
+            style={[
+              styles.tabText,
+              activeTab === 'favorites' && styles.activeTabText,
+              activeTab === 'favorites' && { color: colors.tint },
+            ]}
+          >
+            ❤️ Favoris ({likedRecipes.length})
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      {displayedRecipes.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <ThemedText style={styles.emptyIcon}>
+            {activeTab === 'all' ? '📖' : '❤️'}
+          </ThemedText>
+          <ThemedText type="subtitle" style={styles.emptyTitle}>
+            {activeTab === 'all' ? 'Aucune recette' : 'Aucun favori'}
+          </ThemedText>
+          <ThemedText style={styles.emptyText}>
+            {activeTab === 'all'
+              ? 'Commencez par ajouter votre première recette !'
+              : 'Likez des recettes dans l\'onglet Explorer pour les retrouver ici !'}
+          </ThemedText>
+          {activeTab === 'all' && (
+            <TouchableOpacity
+              style={[styles.emptyButton, { backgroundColor: colors.tint }]}
+              onPress={() => setIsFormVisible(true)}
+            >
+              <ThemedText style={styles.emptyButtonText}>
+                Créer ma première recette
+              </ThemedText>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <FlatList
+          data={displayedRecipes}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <RecipeCard 
+              recipe={item} 
+              onPress={() => handleRecipePress(item)}
+            />
+          )}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* Modal de détail de recette */}
+      <Modal
+        visible={isDetailVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleCloseDetail}
+      >
+        {selectedRecipe && (
+          <RecipeDetail
+            recipe={selectedRecipe}
+            onClose={handleCloseDetail}
+            onEdit={handleEditFromDetail}
+          />
+        )}
+      </Modal>
+
+      {/* Modal de formulaire */}
+      <Modal
+        visible={isFormVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseForm}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <ThemedView style={styles.modalHeader}>
+            <ThemedText type="title">
+              {isEditMode ? 'Éditer la Recette' : 'Nouvelle Recette'}
+            </ThemedText>
+          </ThemedView>
+          <RecipeForm
+            recipe={isEditMode ? selectedRecipe : undefined}
+            onSubmit={isEditMode ? handleEditRecipe : handleAddRecipe}
+            onCancel={handleCloseForm}
+          />
+        </SafeAreaView>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+const createStyles = (colors: typeof Colors.light) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      paddingTop: 8,
+    },
+    addButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    addButtonText: {
+      color: '#fff',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    list: {
+      padding: 16,
+      paddingTop: 8,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      marginBottom: 8,
+    },
+    emptyText: {
+      textAlign: 'center',
+      opacity: 0.7,
+      marginBottom: 24,
+    },
+    emptyButton: {
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+    },
+    emptyButtonText: {
+      color: '#fff',
+      fontWeight: '600',
+      fontSize: 16,
+    },
+    modalContainer: {
+      flex: 1,
+    },
+    modalHeader: {
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.icon + '30',
+    },
+    tabsContainer: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.icon + '20',
+      paddingHorizontal: 16,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    activeTab: {
+      borderBottomWidth: 2,
+    },
+    tabText: {
+      fontSize: 15,
+      fontWeight: '500',
+      opacity: 0.6,
+    },
+    activeTabText: {
+      fontWeight: '600',
+      opacity: 1,
+    },
+  });
