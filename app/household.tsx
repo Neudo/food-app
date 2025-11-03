@@ -17,7 +17,7 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as HouseholdService from "@/services/household-service";
-import { Household, HouseholdMember, HouseholdInvitation } from "@/types/household";
+import { Household, HouseholdMember } from "@/types/household";
 
 export default function HouseholdScreen() {
   const colorScheme = useColorScheme();
@@ -26,14 +26,11 @@ export default function HouseholdScreen() {
 
   const [household, setHousehold] = useState<Household | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
-  const [pendingInvitations, setPendingInvitations] = useState<HouseholdInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const [householdName, setHouseholdName] = useState("");
   const [householdCode, setHouseholdCode] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
 
   useEffect(() => {
@@ -42,10 +39,7 @@ export default function HouseholdScreen() {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([
-      loadHousehold(),
-      loadPendingInvitations(),
-    ]);
+    await loadHousehold();
     setLoading(false);
   };
 

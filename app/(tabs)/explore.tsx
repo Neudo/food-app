@@ -6,10 +6,11 @@ import { Colors } from "@/constants/theme";
 import { useRecipes } from "@/contexts/recipe-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { MealType } from "@/types/recipe";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { supabase } from "@/lib/supabase";
 
 export default function ExploreScreen() {
   const colorScheme = useColorScheme();
@@ -20,13 +21,26 @@ export default function ExploreScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipedRecipes, setSwipedRecipes] = useState<Set<string>>(new Set());
   const [selectedMealType, setSelectedMealType] = useState<MealType>("tous");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Filtrer les recettes par type de repas et non swipées
+  // Récupérer l'ID de l'utilisateur actuel
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, []);
+
+  // Filtrer les recettes par type de repas, non swipées, et exclure les recettes de l'utilisateur
   const availableRecipes = recipes.filter((recipe) => {
     const matchesMealType =
       selectedMealType === "tous" || recipe.mealType === selectedMealType;
     const notSwiped = !swipedRecipes.has(recipe.id);
-    return matchesMealType && notSwiped;
+    const notOwnRecipe = currentUserId ? recipe.userId !== currentUserId : true;
+    return matchesMealType && notSwiped && notOwnRecipe;
   });
 
   const currentRecipe = availableRecipes[currentIndex];

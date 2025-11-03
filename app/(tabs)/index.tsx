@@ -17,6 +17,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRecipes } from '@/contexts/recipe-context';
 import { RecipeFormData, Recipe } from '@/types/recipe';
 import { supabase } from '@/lib/supabase';
+import { CustomSelect } from '@/components/custom-select';
 
 type TabType = 'all' | 'mine' | 'household' | 'favorites';
 
@@ -134,81 +135,38 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </ThemedView>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'all' && styles.activeTab,
-            activeTab === 'all' && { borderBottomColor: colors.tint },
-          ]}
-          onPress={() => setActiveTab('all')}
-        >
-          <ThemedText
-            style={[
-              styles.tabText,
-              activeTab === 'all' && styles.activeTabText,
-              activeTab === 'all' && { color: colors.tint },
-            ]}
-          >
-            Toutes ({recipes.length + likedRecipes.filter(lr => !recipes.find(r => r.id === lr.id)).length})
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'mine' && styles.activeTab,
-            activeTab === 'mine' && { borderBottomColor: colors.tint },
-          ]}
-          onPress={() => setActiveTab('mine')}
-        >
-          <ThemedText
-            style={[
-              styles.tabText,
-              activeTab === 'mine' && styles.activeTabText,
-              activeTab === 'mine' && { color: colors.tint },
-            ]}
-          >
-            Mes recettes ({currentUserId ? recipes.filter(r => r.userId === currentUserId).length : 0})
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'household' && styles.activeTab,
-            activeTab === 'household' && { borderBottomColor: colors.tint },
-          ]}
-          onPress={() => setActiveTab('household')}
-        >
-          <ThemedText
-            style={[
-              styles.tabText,
-              activeTab === 'household' && styles.activeTabText,
-              activeTab === 'household' && { color: colors.tint },
-            ]}
-          >
-            Mon foyer ({recipes.length})
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'favorites' && styles.activeTab,
-            activeTab === 'favorites' && { borderBottomColor: colors.tint },
-          ]}
-          onPress={() => setActiveTab('favorites')}
-        >
-          <ThemedText
-            style={[
-              styles.tabText,
-              activeTab === 'favorites' && styles.activeTabText,
-              activeTab === 'favorites' && { color: colors.tint },
-            ]}
-          >
-            Favoris ({likedRecipes.length})
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
+      {/* Filtre Select */}
+      <CustomSelect<TabType>
+        options={[
+          {
+            value: 'all',
+            label: 'Toutes',
+            emoji: '📖',
+            count: recipes.length + likedRecipes.filter(lr => !recipes.find(r => r.id === lr.id)).length,
+          },
+          {
+            value: 'mine',
+            label: 'Mes recettes',
+            emoji: '👨‍🍳',
+            count: currentUserId ? recipes.filter(r => r.userId === currentUserId).length : 0,
+          },
+          {
+            value: 'household',
+            label: 'Mon foyer',
+            emoji: '🏠',
+            count: recipes.length,
+          },
+          {
+            value: 'favorites',
+            label: 'Favoris',
+            emoji: '❤️',
+            count: likedRecipes.length,
+          },
+        ]}
+        selectedValue={activeTab}
+        onSelect={setActiveTab}
+        showCount={true}
+      />
 
       {displayedRecipes.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -354,30 +312,5 @@ const createStyles = (colors: typeof Colors.light) =>
       padding: 16,
       borderBottomWidth: 1,
       borderBottomColor: colors.icon + '30',
-    },
-    tabsContainer: {
-      flexDirection: 'row',
-      borderBottomWidth: 1,
-      borderBottomColor: colors.icon + '20',
-      paddingHorizontal: 16,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderBottomWidth: 2,
-      borderBottomColor: 'transparent',
-    },
-    activeTab: {
-      borderBottomWidth: 2,
-    },
-    tabText: {
-      fontSize: 15,
-      fontWeight: '500',
-      opacity: 0.6,
-    },
-    activeTabText: {
-      fontWeight: '600',
-      opacity: 1,
     },
   });

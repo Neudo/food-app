@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { Household, HouseholdMember, HouseholdInvitation, HouseholdRole, InvitationStatus } from '@/types/household';
+import { Household, HouseholdMember, HouseholdRole } from '@/types/household';
 
 /**
  * Service pour gérer les foyers (households) et le partage entre utilisateurs
@@ -26,16 +26,6 @@ interface DatabaseHouseholdMember {
   joined_at: string;
 }
 
-interface DatabaseHouseholdInvitation {
-  id: string;
-  household_id: string;
-  invited_by: string;
-  invited_email: string;
-  status: InvitationStatus;
-  created_at: string;
-  expires_at: string;
-}
-
 // =====================================================
 // CONVERSION DATABASE <-> APP
 // =====================================================
@@ -58,18 +48,6 @@ function mapDatabaseMember(db: DatabaseHouseholdMember): HouseholdMember {
     userId: db.user_id,
     role: db.role,
     joinedAt: new Date(db.joined_at),
-  };
-}
-
-function mapDatabaseInvitation(db: DatabaseHouseholdInvitation): HouseholdInvitation {
-  return {
-    id: db.id,
-    householdId: db.household_id,
-    invitedBy: db.invited_by,
-    invitedEmail: db.invited_email,
-    status: db.status,
-    createdAt: new Date(db.created_at),
-    expiresAt: new Date(db.expires_at),
   };
 }
 
@@ -409,185 +387,3 @@ export async function updateMemberRole(userId: string, role: HouseholdRole): Pro
   }
 }
 
-// =====================================================
-// GESTION DES INVITATIONS
-// =====================================================
-
-/**
- * Inviter quelqu'un par email
- */
-export async function inviteToHousehold(householdId: string, email: string): Promise<{ data: HouseholdInvitation | null; error: Error | null }> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { data: null, error: new Error('User not authenticated') };
-    }
-
-    // Note: On ne peut pas facilement vérifier si l'email est déjà membre
-    // car user_settings ne contient pas l'email
-    // La contrainte sera vérifiée lors de l'acceptation de l'invitation
-
-    const { data, error } = await supabase
-      .from('household_invitations')
-      .insert([{
-        household_id: householdId,
-        invited_by: user.id,
-        invited_email: email,
-        status: 'pending',
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating invitation:', error);
-      return { data: null, error: new Error(error.message) };
-    }
-
-    return { data: mapDatabaseInvitation(data), error: null };
-  } catch (error) {
-    console.error('Error in inviteToHousehold:', error);
-    return { data: null, error: error as Error };
-  }
-}
-
-/**
- * Récupérer les invitations en attente pour l'utilisateur actuel
- */
-export async function getPendingInvitations(): Promise<{ data: HouseholdInvitation[] | null; error: Error | null }> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !user.email) {
-      return { data: null, error: new Error('User not authenticated') };
-    }
-
-    const { data, error } = await supabase
-      .from('household_invitations')
-      .select(`
-        *,
-        households:household_id (name)
-      `)
-      .eq('invited_email', user.email)
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString());
-
-    if (error) {
-      console.error('Error fetching invitations:', error);
-      return { data: null, error: new Error(error.message) };
-    }
-
-    const invitations = data.map((item: any) => ({
-      ...mapDatabaseInvitation(item),
-      householdName: item.households?.name,
-      // On n'affiche pas l'email de l'inviteur (nécessiterait une fonction Edge)
-      inviterEmail: undefined,
-    }));
-
-    return { data: invitations, error: null };
-  } catch (error) {
-    console.error('Error in getPendingInvitations:', error);
-    return { data: null, error: error as Error };
-  }
-}
-
-/**
- * Accepter une invitation
- */
-export async function acceptInvitation(invitationId: string): Promise<{ error: Error | null }> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { error: new Error('User not authenticated') };
-    }
-
-    // Récupérer l'invitation
-    const { data: invitation, error: invitationError } = await supabase
-      .from('household_invitations')
-      .select('*')
-      .eq('id', invitationId)
-      .single();
-
-    if (invitationError) {
-      console.error('Error fetching invitation:', invitationError);
-      return { error: new Error(invitationError.message) };
-    }
-
-    // Vérifier que l'utilisateur n'est pas déjà dans un foyer
-    const { data: existingHousehold } = await getUserHousehold();
-    if (existingHousehold) {
-      return { error: new Error('You must leave your current household first') };
-    }
-
-    // Mettre à jour user_settings pour rejoindre le foyer
-    const { error: settingsError } = await supabase
-      .from('user_settings')
-      .update({
-        household_id: invitation.household_id,
-        household_role: 'member',
-      })
-      .eq('user_id', user.id);
-
-    if (settingsError) {
-      console.error('Error updating user settings:', settingsError);
-      return { error: new Error(settingsError.message) };
-    }
-
-    // Marquer l'invitation comme acceptée
-    const { error: updateError } = await supabase
-      .from('household_invitations')
-      .update({ status: 'accepted' })
-      .eq('id', invitationId);
-
-    if (updateError) {
-      console.error('Error updating invitation:', updateError);
-    }
-
-    return { error: null };
-  } catch (error) {
-    console.error('Error in acceptInvitation:', error);
-    return { error: error as Error };
-  }
-}
-
-/**
- * Refuser une invitation
- */
-export async function declineInvitation(invitationId: string): Promise<{ error: Error | null }> {
-  try {
-    const { error } = await supabase
-      .from('household_invitations')
-      .update({ status: 'declined' })
-      .eq('id', invitationId);
-
-    if (error) {
-      console.error('Error declining invitation:', error);
-      return { error: new Error(error.message) };
-    }
-
-    return { error: null };
-  } catch (error) {
-    console.error('Error in declineInvitation:', error);
-    return { error: error as Error };
-  }
-}
-
-/**
- * Annuler une invitation
- */
-export async function cancelInvitation(invitationId: string): Promise<{ error: Error | null }> {
-  try {
-    const { error } = await supabase
-      .from('household_invitations')
-      .update({ status: 'cancelled' })
-      .eq('id', invitationId);
-
-    if (error) {
-      console.error('Error cancelling invitation:', error);
-      return { error: new Error(error.message) };
-    }
-
-    return { error: null };
-  } catch (error) {
-    console.error('Error in cancelInvitation:', error);
-    return { error: error as Error };
-  }
-}
