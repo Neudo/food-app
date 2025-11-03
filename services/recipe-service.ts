@@ -1,8 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { Recipe, RecipeFormData } from '@/types/recipe';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
-import { Platform } from 'react-native';
 
 /**
  * Service pour gérer les recettes avec Supabase
@@ -44,6 +43,7 @@ interface DatabaseRecipe {
 function mapDatabaseRecipeToRecipe(dbRecipe: DatabaseRecipe): Recipe {
   return {
     id: dbRecipe.id,
+    userId: dbRecipe.user_id,
     title: dbRecipe.title,
     description: dbRecipe.description,
     mealType: dbRecipe.meal_type as any,
@@ -73,7 +73,8 @@ function mapRecipeToDatabase(recipe: RecipeFormData, userId: string, imageUrl?: 
     meal_type: recipe.mealType,
     is_simple: recipe.isSimple,
     notes: recipe.notes,
-    image_url: imageUrl || recipe.imageUrl,
+    // Utiliser imageUrl si fourni, sinon vérifier que recipe.imageUrl n'est pas locale
+    image_url: imageUrl || (recipe.imageUrl && !recipe.imageUrl.startsWith('file://') ? recipe.imageUrl : undefined),
     prep_time: recipe.prepTime,
     cook_time: recipe.cookTime,
     servings: recipe.servings,
@@ -190,9 +191,15 @@ export async function createRecipe(recipeData: RecipeFormData): Promise<{ data: 
     let imageUrl: string | undefined;
     if (recipeData.imageUrl && recipeData.imageUrl.startsWith('file://')) {
       imageUrl = await uploadRecipeImage(recipeData.imageUrl, tempId) || undefined;
+      if (!imageUrl) {
+        console.error('Failed to upload image, recipe will be created without image');
+      }
+    } else if (recipeData.imageUrl && !recipeData.imageUrl.startsWith('file://')) {
+      // Si l'URL n'est pas locale (déjà une URL Supabase), la garder
+      imageUrl = recipeData.imageUrl;
     }
 
-    // Préparer les données pour la DB
+    // Préparer les données pour la DB (ne pas utiliser recipe.imageUrl si c'est une URL locale)
     const dbRecipe = mapRecipeToDatabase(recipeData, user.id, imageUrl);
 
     // Insérer dans la base de données
@@ -219,7 +226,8 @@ export async function createRecipe(recipeData: RecipeFormData): Promise<{ data: 
 }
 
 /**
- * Récupérer toutes les recettes de l'utilisateur
+ * Récupérer toutes les recettes de l'utilisateur ET de son foyer
+ * Les policies RLS se chargent automatiquement de filtrer les recettes accessibles
  */
 export async function getUserRecipes(): Promise<{ data: Recipe[] | null; error: Error | null }> {
   try {
@@ -228,10 +236,11 @@ export async function getUserRecipes(): Promise<{ data: Recipe[] | null; error: 
       return { data: null, error: new Error('User not authenticated') };
     }
 
+    // Ne pas filtrer par user_id - laisser les policies RLS gérer l'accès
+    // Cela retournera automatiquement les recettes de l'utilisateur + celles du foyer
     const { data, error } = await supabase
       .from('recipes')
       .select('*')
-      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -240,6 +249,14 @@ export async function getUserRecipes(): Promise<{ data: Recipe[] | null; error: 
     }
 
     const recipes = data.map(mapDatabaseRecipeToRecipe);
+    
+    // Log des URLs d'images pour debug
+    recipes.forEach(recipe => {
+      if (recipe.imageUrl) {
+        console.log('🖼️ Image URL:', recipe.imageUrl);
+      }
+    });
+    
     return { data: recipes, error: null };
   } catch (error) {
     console.error('Error in getUserRecipes:', error);

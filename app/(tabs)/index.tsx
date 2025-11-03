@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,8 +16,9 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRecipes } from '@/contexts/recipe-context';
 import { RecipeFormData, Recipe } from '@/types/recipe';
+import { supabase } from '@/lib/supabase';
 
-type TabType = 'all' | 'favorites';
+type TabType = 'all' | 'mine' | 'household' | 'favorites';
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -28,9 +29,56 @@ export default function HomeScreen() {
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Récupérer l'ID de l'utilisateur actuel
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, []);
 
   // Filtrer les recettes selon l'onglet actif
-  const displayedRecipes = activeTab === 'all' ? recipes : likedRecipes;
+  const displayedRecipes = React.useMemo(() => {
+    if (activeTab === 'favorites') {
+      return likedRecipes;
+    }
+    
+    if (activeTab === 'mine' && currentUserId) {
+      return recipes.filter(r => r.userId === currentUserId);
+    }
+    
+    if (activeTab === 'household') {
+      // Mon foyer = toutes les recettes (mes recettes + celles du foyer)
+      return recipes;
+    }
+    
+    // Toutes = mes recettes + favoris + foyer (union de tout)
+    const allRecipesSet = new Set<string>();
+    const allRecipes: Recipe[] = [];
+    
+    // Ajouter mes recettes
+    recipes.forEach(r => {
+      if (!allRecipesSet.has(r.id)) {
+        allRecipesSet.add(r.id);
+        allRecipes.push(r);
+      }
+    });
+    
+    // Ajouter les favoris
+    likedRecipes.forEach(r => {
+      if (!allRecipesSet.has(r.id)) {
+        allRecipesSet.add(r.id);
+        allRecipes.push(r);
+      }
+    });
+    
+    return allRecipes;
+  }, [activeTab, recipes, likedRecipes, currentUserId]);
 
   const handleAddRecipe = async (recipeData: RecipeFormData) => {
     const success = await addRecipe(recipeData);
@@ -103,7 +151,43 @@ export default function HomeScreen() {
               activeTab === 'all' && { color: colors.tint },
             ]}
           >
-            Toutes ({recipes.length})
+            Toutes ({recipes.length + likedRecipes.filter(lr => !recipes.find(r => r.id === lr.id)).length})
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'mine' && styles.activeTab,
+            activeTab === 'mine' && { borderBottomColor: colors.tint },
+          ]}
+          onPress={() => setActiveTab('mine')}
+        >
+          <ThemedText
+            style={[
+              styles.tabText,
+              activeTab === 'mine' && styles.activeTabText,
+              activeTab === 'mine' && { color: colors.tint },
+            ]}
+          >
+            Mes recettes ({currentUserId ? recipes.filter(r => r.userId === currentUserId).length : 0})
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'household' && styles.activeTab,
+            activeTab === 'household' && { borderBottomColor: colors.tint },
+          ]}
+          onPress={() => setActiveTab('household')}
+        >
+          <ThemedText
+            style={[
+              styles.tabText,
+              activeTab === 'household' && styles.activeTabText,
+              activeTab === 'household' && { color: colors.tint },
+            ]}
+          >
+            Mon foyer ({recipes.length})
           </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
@@ -121,7 +205,7 @@ export default function HomeScreen() {
               activeTab === 'favorites' && { color: colors.tint },
             ]}
           >
-            ❤️ Favoris ({likedRecipes.length})
+            Favoris ({likedRecipes.length})
           </ThemedText>
         </TouchableOpacity>
       </View>
@@ -129,17 +213,21 @@ export default function HomeScreen() {
       {displayedRecipes.length === 0 ? (
         <View style={styles.emptyContainer}>
           <ThemedText style={styles.emptyIcon}>
-            {activeTab === 'all' ? '📖' : '❤️'}
+            {activeTab === 'all' ? '📖' : activeTab === 'mine' ? '👨‍🍳' : activeTab === 'household' ? '🏠' : '❤️'}
           </ThemedText>
           <ThemedText type="subtitle" style={styles.emptyTitle}>
-            {activeTab === 'all' ? 'Aucune recette' : 'Aucun favori'}
+            {activeTab === 'all' ? 'Aucune recette' : 
+             activeTab === 'mine' ? 'Aucune recette personnelle' :
+             activeTab === 'household' ? 'Aucune recette du foyer' :
+             'Aucun favori'}
           </ThemedText>
           <ThemedText style={styles.emptyText}>
-            {activeTab === 'all'
-              ? 'Commencez par ajouter votre première recette !'
-              : 'Likez des recettes dans l\'onglet Explorer pour les retrouver ici !'}
+            {activeTab === 'all' ? 'Commencez par ajouter votre première recette !' :
+             activeTab === 'mine' ? 'Créez votre première recette personnelle !' :
+             activeTab === 'household' ? 'Les recettes de votre foyer apparaîtront ici' :
+             'Likez des recettes dans l\'onglet Explorer pour les retrouver ici !'}
           </ThemedText>
-          {activeTab === 'all' && (
+          {(activeTab === 'all' || activeTab === 'mine') && (
             <TouchableOpacity
               style={[styles.emptyButton, { backgroundColor: colors.tint }]}
               onPress={() => setIsFormVisible(true)}

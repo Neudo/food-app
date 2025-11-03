@@ -4,6 +4,7 @@ import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import React from "react";
+import { router } from "expo-router";
 import {
   Alert,
   ScrollView,
@@ -46,6 +47,12 @@ export default function MenuScreen() {
       onPress: () => Alert.alert("À venir", "Fonctionnalité en développement"),
     },
     {
+      icon: "home-heart",
+      title: "Mon Foyer",
+      subtitle: "Partager avec vos proches",
+      onPress: () => router.push("/household"),
+    },
+    {
       icon: "bell",
       title: "Notifications",
       subtitle: "Gérer vos notifications",
@@ -56,7 +63,7 @@ export default function MenuScreen() {
       icon: "cog",
       title: "Paramètres",
       subtitle: "Préférences de l'application",
-      onPress: () => Alert.alert("À venir", "Fonctionnalité en développement"),
+      onPress: () => router.push("/settings"),
     },
     {
       icon: "information",

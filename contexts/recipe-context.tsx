@@ -2,9 +2,11 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Recipe, RecipeFormData, MealType } from '@/types/recipe';
 import { mockRecipes } from '@/data/mock-recipes';
 import * as RecipeService from '@/services/recipe-service';
+import * as MealPlanService from '@/services/meal-plan-service';
 import { Alert } from 'react-native';
 
 export interface PlannedMeal {
+  id?: string; // ID du meal plan (optionnel pour compatibilité)
   date: string; // Format: YYYY-MM-DD
   mealType: MealType;
   recipe: Recipe;
@@ -21,8 +23,8 @@ interface RecipeContextType {
   unlikeRecipe: (recipeId: string) => Promise<void>;
   rejectRecipe: (recipeId: string) => void;
   plannedMeals: PlannedMeal[];
-  addPlannedMeal: (date: string, mealType: MealType, recipe: Recipe) => void;
-  removePlannedMeal: (date: string, mealType: MealType) => void;
+  addPlannedMeal: (date: string, mealType: MealType, recipe: Recipe) => Promise<void>;
+  removePlannedMeal: (mealPlanId: string) => Promise<void>;
   getPlannedMealsForDate: (date: string) => PlannedMeal[];
   loading: boolean;
   refreshRecipes: () => Promise<void>;
@@ -37,10 +39,15 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Charger les recettes au démarrage
+  // Charger les recettes et meal plans au démarrage
   useEffect(() => {
-    loadRecipes();
-    loadLikedRecipes();
+    const loadData = async () => {
+      await loadRecipes();
+      await loadLikedRecipes();
+      // Charger les meal plans après les recettes
+      await loadMealPlans();
+    };
+    loadData();
   }, []);
 
   const loadRecipes = async () => {
@@ -65,6 +72,36 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
       console.error('Error loading liked recipes:', error);
     } else if (data) {
       setLikedRecipes(data);
+    }
+  };
+
+  const loadMealPlans = async () => {
+    const { data, error } = await MealPlanService.getUserMealPlans();
+    
+    if (error) {
+      console.error('Error loading meal plans:', error);
+      return;
+    }
+    
+    if (data) {
+      // Récupérer les recettes complètes pour chaque meal plan
+      const mealsWithRecipes: PlannedMeal[] = [];
+      
+      for (const mealPlan of data) {
+        // Récupérer la recette depuis Supabase si elle n'est pas dans le state
+        const { data: recipeData } = await RecipeService.getRecipeById(mealPlan.recipeId);
+        
+        if (recipeData) {
+          mealsWithRecipes.push({
+            id: mealPlan.id,
+            date: mealPlan.plannedDate,
+            mealType: mealPlan.mealType,
+            recipe: recipeData,
+          });
+        }
+      }
+      
+      setPlannedMeals(mealsWithRecipes);
     }
   };
 
@@ -184,20 +221,44 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addPlannedMeal = (date: string, mealType: MealType, recipe: Recipe) => {
-    setPlannedMeals((prev) => {
-      // Supprimer l'ancien repas s'il existe pour cette date et ce type
-      const filtered = prev.filter(
-        (meal) => !(meal.date === date && meal.mealType === mealType)
-      );
-      return [...filtered, { date, mealType, recipe }];
-    });
+  const addPlannedMeal = async (date: string, mealType: MealType, recipe: Recipe) => {
+    // Créer le meal plan dans Supabase
+    const { data, error } = await MealPlanService.createMealPlan(
+      recipe.id,
+      date,
+      mealType
+    );
+
+    if (error) {
+      console.error('Error adding meal plan:', error);
+      Alert.alert('Erreur', 'Impossible d\'ajouter le repas au planning');
+      return;
+    }
+
+    if (data) {
+      // Ajouter au state local
+      const newMeal: PlannedMeal = {
+        id: data.id,
+        date,
+        mealType,
+        recipe,
+      };
+      setPlannedMeals((prev) => [...prev, newMeal]);
+    }
   };
 
-  const removePlannedMeal = (date: string, mealType: MealType) => {
-    setPlannedMeals((prev) =>
-      prev.filter((meal) => !(meal.date === date && meal.mealType === mealType))
-    );
+  const removePlannedMeal = async (mealPlanId: string) => {
+    // Supprimer de Supabase
+    const { error } = await MealPlanService.deleteMealPlan(mealPlanId);
+
+    if (error) {
+      console.error('Error removing meal plan:', error);
+      Alert.alert('Erreur', 'Impossible de supprimer le repas');
+      return;
+    }
+
+    // Supprimer du state local
+    setPlannedMeals((prev) => prev.filter((meal) => meal.id !== mealPlanId));
   };
 
   const getPlannedMealsForDate = (date: string): PlannedMeal[] => {

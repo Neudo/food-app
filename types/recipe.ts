@@ -2,6 +2,7 @@ export type MealType = 'petit-déjeuner' | 'déjeuner' | 'dîner' | 'collation' 
 
 export interface Recipe {
   id: string;
+  userId: string; // ID de l'utilisateur propriétaire de la recette
   title: string;
   description: string;
   mealType: MealType;
@@ -26,4 +27,4 @@ export interface Ingredient {
   unit: string;
 }
 
-export type RecipeFormData = Omit<Recipe, 'id' | 'createdAt'>;
+export type RecipeFormData = Omit<Recipe, 'id' | 'userId' | 'createdAt'>;

@@ -152,7 +152,55 @@ CREATE POLICY "Users can unlike recipes"
     FOR DELETE
     USING (auth.uid() = user_id);
 
--- 6. TABLE POUR LE PLANNING DES REPAS
+-- 6. TABLE POUR LES PRÉFÉRENCES UTILISATEUR
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS public.user_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    
+    -- Préférences d'affichage des types de repas dans le planning
+    show_breakfast BOOLEAN DEFAULT true,
+    show_lunch BOOLEAN DEFAULT true,
+    show_dinner BOOLEAN DEFAULT true,
+    show_snack BOOLEAN DEFAULT true,
+    
+    -- Métadonnées
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Activer RLS sur user_settings
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+
+-- Index sur user_id
+CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON public.user_settings(user_id);
+
+-- Policies pour user_settings
+CREATE POLICY "Users can view their own settings"
+    ON public.user_settings
+    FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own settings"
+    ON public.user_settings
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own settings"
+    ON public.user_settings
+    FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- Trigger pour mettre à jour updated_at automatiquement
+DROP TRIGGER IF EXISTS set_updated_at_user_settings ON public.user_settings;
+CREATE TRIGGER set_updated_at_user_settings
+    BEFORE UPDATE ON public.user_settings
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_updated_at();
+
+-- 7. TABLE POUR LE PLANNING DES REPAS
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.meal_plans (
@@ -161,10 +209,8 @@ CREATE TABLE IF NOT EXISTS public.meal_plans (
     recipe_id UUID NOT NULL REFERENCES public.recipes(id) ON DELETE CASCADE,
     planned_date DATE NOT NULL,
     meal_type TEXT NOT NULL CHECK (meal_type IN ('petit-déjeuner', 'déjeuner', 'dîner', 'collation')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Un utilisateur ne peut planifier qu'une seule recette par type de repas et par date
-    UNIQUE(user_id, planned_date, meal_type)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    -- Pas de contrainte UNIQUE : permet plusieurs repas du même type sur une même journée
 );
 
 -- Activer RLS sur meal_plans
@@ -204,4 +250,4 @@ CREATE POLICY "Users can delete their own meal plans"
 SELECT table_name 
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
-AND table_name IN ('recipes', 'liked_recipes', 'meal_plans');
+AND table_name IN ('recipes', 'liked_recipes', 'meal_plans', 'user_settings');
